@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign Up — Production Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div class="eyebrow">Production Tracker</div>
+    <h1>Create account</h1>
+    <div class="auth-sub">Set up your pipeline in a couple minutes.</div>
+
+    <div class="auth-error" id="authError"></div>
+
+    <form id="signupForm" novalidate>
+      <div class="field">
+        <label>Full name</label>
+        <input type="text" id="fullName" autocomplete="name" placeholder="Your name">
+        <div class="field-error" id="err-fullName"></div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="email" autocomplete="email" placeholder="you@example.com">
+        <div class="field-error" id="err-email"></div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="pw-field">
+          <input type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters">
+          <button type="button" class="pw-toggle" id="pwToggle1">Show</button>
+        </div>
+        <div class="field-error" id="err-password"></div>
+      </div>
+      <div class="field">
+        <label>Confirm password</label>
+        <div class="pw-field">
+          <input type="password" id="confirmPassword" autocomplete="new-password" placeholder="Re-enter password">
+          <button type="button" class="pw-toggle" id="pwToggle2">Show</button>
+        </div>
+        <div class="field-error" id="err-confirmPassword"></div>
+      </div>
+      <button class="action-btn primary auth-submit" id="submitBtn">Create account</button>
+    </form>
+
+    <div class="auth-switch">Already have an account? <a href="login.html">Log in</a></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script>
+const fullNameEl = document.getElementById('fullName');
+const emailEl = document.getElementById('email');
+const pwEl = document.getElementById('password');
+const confirmEl = document.getElementById('confirmPassword');
+const authErrBox = document.getElementById('authError');
+
+wirePasswordToggle(document.getElementById('pwToggle1'), pwEl);
+wirePasswordToggle(document.getElementById('pwToggle2'), confirmEl);
+
+function validate() {
+  let ok = true;
+  showFieldError(fullNameEl, document.getElementById('err-fullName'),
+    fullNameEl.value.trim() ? '' : 'Enter your name.');
+  if (!fullNameEl.value.trim()) ok = false;
+
+  const emailMsg = !emailEl.value.trim() ? 'Enter your email.'
+    : !isValidEmail(emailEl.value) ? 'Enter a valid email address.' : '';
+  showFieldError(emailEl, document.getElementById('err-email'), emailMsg);
+  if (emailMsg) ok = false;
+
+  const pwMsg = pwEl.value.length < 8 ? 'Use at least 8 characters.' : '';
+  showFieldError(pwEl, document.getElementById('err-password'), pwMsg);
+  if (pwMsg) ok = false;
+
+  const confirmMsg = confirmEl.value !== pwEl.value ? 'Passwords do not match.' : '';
+  showFieldError(confirmEl, document.getElementById('err-confirmPassword'), confirmMsg);
+  if (confirmMsg) ok = false;
+
+  return ok;
+}
+
+[fullNameEl, emailEl, pwEl, confirmEl].forEach(el => el.addEventListener('blur', validate));
+
+guardSubmit(document.getElementById('submitBtn'), async () => {
+  hideAuthError(authErrBox);
+  if (!validate()) return;
+
+  const { data, error } = await DataAPI.signUp(emailEl.value.trim(), pwEl.value, fullNameEl.value.trim());
+  if (error) { showAuthError(authErrBox, error.message); return; }
+
+  if (data.session) {
+    window.location.href = 'index.html';
+  } else {
+    authErrBox.classList.remove('show');
+    document.querySelector('.auth-box').innerHTML =
+      '<div class="eyebrow">Production Tracker</div><h1>Check your email</h1>' +
+      '<div class="auth-sub">We sent a confirmation link to ' + emailEl.value.trim() +
+      '. Confirm it, then log in.</div>' +
+      '<div class="auth-switch"><a href="login.html">Go to log in</a></div>';
+  }
+});
+</script>
+</body>
+</html>

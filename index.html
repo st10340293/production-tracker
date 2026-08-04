@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ HOME VIEW ============ -->
+  <div class="view active" id="homeView">
+    <div class="home-header" style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;">
+      <div>
+        <div class="eyebrow">Production Tracker</div>
+        <h1>Your Projects</h1>
+        <div class="subtitle">Pick a project to open, or start a new one — any kind of production, your own stages.</div>
+      </div>
+      <button class="action-btn" id="signOutBtn">Sign out</button>
+    </div>
+    <div class="project-grid" id="projectGrid"></div>
+  </div>
+
+  <!-- ============ SETUP VIEW ============ -->
+  <div class="view" id="setupView">
+    <button class="back-link" id="setupBackBtn">← Back to projects</button>
+    <div class="eyebrow" style="margin-top:14px;">New Project</div>
+    <h1 style="margin-bottom:18px;">Set Up Your Board</h1>
+    <div class="setup-box">
+      <div class="field">
+        <label>Project name</label>
+        <input type="text" id="setupName" placeholder="e.g. Album Mixdown, Season 2 Episodes, Client Deliverables">
+        <div class="field-error" id="err-setupName"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>What are you tracking? (singular)</label>
+          <input type="text" id="setupItemSingular" placeholder="e.g. Track, Episode, Chapter" value="Track">
+        </div>
+        <div class="field">
+          <label>Plural</label>
+          <input type="text" id="setupItemPlural" placeholder="e.g. Tracks, Episodes, Chapters" value="Tracks">
+        </div>
+      </div>
+      <div class="field">
+        <label>Pipeline stages, in order</label>
+        <div class="stage-editor" id="setupStageEditor"></div>
+        <button class="add-stage-btn" id="addStageBtn">+ Add stage</button>
+        <div class="hint">The last stage is treated as the finish line — items with it checked show as Complete. Edit, reorder, or remove stages any time from the board.</div>
+      </div>
+      <div class="setup-actions">
+        <button class="action-btn primary" id="createProjectBtn">Create board</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ BOARD VIEW ============ -->
+  <div class="view" id="boardView">
+    <button class="back-link" id="boardBackBtn">← All projects</button>
+    <header style="margin-top:14px;">
+      <div>
+        <div class="eyebrow">Production Tracker</div>
+        <h1 id="boardTitle" contenteditable="true" spellcheck="false"></h1>
+        <div class="subtitle" id="boardSubtitle"></div>
+      </div>
+      <div class="master">
+        <div class="master-row"><span id="finishLabel">Complete</span><b id="completeCount">–</b></div>
+        <div class="meter" id="masterMeter"><i style="width:0%"></i></div>
+        <div class="last-saved" id="lastSaved">Not saved yet</div>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="filters" id="filterBar">
+        <button data-filter="all" class="active">All</button>
+        <button data-filter="notstarted">Not started</button>
+        <button data-filter="inprogress">In progress</button>
+        <button data-filter="complete">Complete</button>
+        <button data-filter="overdue">Overdue</button>
+        <input type="text" id="searchBox" placeholder="Search name or assignee… ( / )">
+      </div>
+      <div class="actions">
+        <button class="action-btn" id="sortDueBtn">Sort by due</button>
+        <button class="action-btn" id="selectModeBtn">Select</button>
+        <button class="action-btn" id="membersBtn">Members</button>
+        <button class="action-btn" id="activityBtn">Activity</button>
+        <button class="action-btn" id="editStagesBtn">Stages</button>
+        <button class="action-btn" id="summaryBtn">Summary</button>
+        <button class="action-btn primary" id="saveBtn">Save Progress</button>
+      </div>
+    </div>
+
+    <div class="bulk-bar" id="bulkBar">
+      <span id="bulkCount">0 selected</span>
+      <select id="bulkStageSelect"></select>
+      <button class="action-btn" id="bulkCheckBtn">Check stage</button>
+      <button class="action-btn" id="bulkUncheckBtn">Uncheck stage</button>
+      <button class="action-btn danger" id="bulkDeleteBtn">Delete selected</button>
+      <button class="action-btn" id="bulkCancelBtn">Cancel (Esc)</button>
+    </div>
+
+    <div class="summary-panel" id="summaryPanel">
+      <div class="summary-head">
+        <h2>Progress Summary</h2>
+        <div class="actions">
+          <button class="action-btn" id="copySummaryBtn">Copy</button>
+          <button class="action-btn" id="downloadTxtBtn">.txt</button>
+          <button class="action-btn" id="downloadCsvBtn">.csv</button>
+          <button class="action-btn" id="downloadJsonBtn">.json</button>
+        </div>
+      </div>
+      <div class="summary-grid" id="summaryGrid"></div>
+      <div class="stage-breakdown" id="stageBreakdown"></div>
+      <table class="summary-table">
+        <thead>
+          <tr><th>Item</th><th>Status</th><th>Progress</th><th>Assignee</th><th>Due</th><th>Pending stages</th></tr>
+        </thead>
+        <tbody id="summaryTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- stage editor panel (reused inline on board) -->
+    <div class="summary-panel" id="stagePanel">
+      <div class="summary-head">
+        <h2>Edit Pipeline Stages</h2>
+        <div class="actions">
+          <button class="action-btn primary" id="saveStagesBtn">Save stages</button>
+        </div>
+      </div>
+      <div class="stage-editor" id="boardStageEditor"></div>
+      <button class="add-stage-btn" id="boardAddStageBtn">+ Add stage</button>
+      <div class="hint">Renaming a stage keeps its progress. Removing a stage discards its checkmarks. Reordering just changes display order.</div>
+    </div>
+
+    <!-- members / sharing panel -->
+    <div class="summary-panel" id="membersPanel">
+      <div class="summary-head">
+        <h2>Members</h2>
+      </div>
+      <div class="invite-row" id="inviteRow">
+        <input type="text" id="inviteEmail" placeholder="Collaborator's email (must have an account)">
+        <select id="inviteRole">
+          <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
+        </select>
+        <button class="action-btn primary" id="inviteBtn">Invite</button>
+      </div>
+      <div id="membersList"></div>
+      <div class="hint" id="membersHint">Only the project owner can invite or remove members.</div>
+    </div>
+
+    <!-- activity log panel -->
+    <div class="summary-panel" id="activityPanel">
+      <div class="summary-head">
+        <h2>Activity</h2>
+      </div>
+      <div id="activityFeed"></div>
+    </div>
+
+    <!-- attachments panel (scoped to whichever item's 📎 button was clicked) -->
+    <div class="summary-panel" id="attachmentsPanel">
+      <div class="summary-head">
+        <h2 id="attachmentsItemName">Attachments</h2>
+        <button class="action-btn" id="closeAttachmentsBtn">Close</button>
+      </div>
+      <div class="invite-row" id="attachAddRow">
+        <input type="file" id="attachFileInput" style="display:none;">
+        <button class="action-btn" id="attachUploadBtn">📁 Upload file</button>
+        <input type="text" id="attachLinkUrl" placeholder="Paste a link (https://…)">
+        <input type="text" id="attachLinkLabel" placeholder="Label (optional)" style="max-width:160px;">
+        <button class="action-btn primary" id="attachAddLinkBtn">Add link</button>
+      </div>
+      <div id="attachmentsList"></div>
+    </div>
+
+    <div class="board" id="board"></div>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button class="add-item-btn" id="addItemBtn" style="margin-top:0;flex:1;">+ Add item</button>
+      <button class="add-item-btn" id="importCsvBtn" style="margin-top:0;flex:1;">Import CSV</button>
+      <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
+    </div>
+
+    <footer id="boardFooter"></footer>
+  </div>
+
+</div>
+
+<div class="loading-overlay" id="loadingOverlay"><span class="spinner"></span>&nbsp;Loading…</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/data.js"></script>
+<script src="js/script.js"></script>
+</body>
+</html>

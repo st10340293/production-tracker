@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log In — Production Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div class="eyebrow">Production Tracker</div>
+    <h1>Log in</h1>
+    <div class="auth-sub">Welcome back. Pick up where you left off.</div>
+
+    <div class="auth-error" id="authError">Incorrect email or password.</div>
+
+    <form id="loginForm" novalidate>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="email" autocomplete="email" placeholder="you@example.com">
+        <div class="field-error" id="err-email"></div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="pw-field">
+          <input type="password" id="password" autocomplete="current-password" placeholder="Your password">
+          <button type="button" class="pw-toggle" id="pwToggle1">Show</button>
+        </div>
+        <div class="field-error" id="err-password"></div>
+      </div>
+      <button class="action-btn primary auth-submit" id="submitBtn">Log in</button>
+    </form>
+
+    <div class="auth-switch">Don't have an account? <a href="signup.html">Sign up</a></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script>
+const emailEl = document.getElementById('email');
+const pwEl = document.getElementById('password');
+const authErrBox = document.getElementById('authError');
+wirePasswordToggle(document.getElementById('pwToggle1'), pwEl);
+
+function validate() {
+  let ok = true;
+  const emailMsg = !emailEl.value.trim() ? 'Enter your email.'
+    : !isValidEmail(emailEl.value) ? 'Enter a valid email address.' : '';
+  showFieldError(emailEl, document.getElementById('err-email'), emailMsg);
+  if (emailMsg) ok = false;
+
+  const pwMsg = !pwEl.value ? 'Enter your password.' : '';
+  showFieldError(pwEl, document.getElementById('err-password'), pwMsg);
+  if (pwMsg) ok = false;
+  return ok;
+}
+[emailEl, pwEl].forEach(el => el.addEventListener('blur', validate));
+
+guardSubmit(document.getElementById('submitBtn'), async () => {
+  hideAuthError(authErrBox);
+  if (!validate()) return;
+
+  // Generic message on failure — never reveal which field was wrong.
+  const { data, error } = await DataAPI.signIn(emailEl.value.trim(), pwEl.value);
+  if (error) { showAuthError(authErrBox, 'Incorrect email or password.'); return; }
+  window.location.href = 'index.html';
+});
+</script>
+</body>
+</html>
