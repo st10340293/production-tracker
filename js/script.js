@@ -89,15 +89,29 @@ function renderHome() {
 
   state.projectsSummary.forEach(p => {
     const itemCount = (p.items || []).length;
+    const isOwner = p.owner_id === state.user.id;
     const card = document.createElement('div');
     card.className = 'project-card';
+    card.style.position = 'relative';
     card.innerHTML = `
+      ${isOwner ? `<button class="project-delete-btn" title="Delete project">×</button>` : ''}
       <div class="p-name">${escHtml(p.title)}</div>
       <div class="p-meta">${itemCount} ${itemCount === 1 ? escHtml(p.item_singular) : escHtml(p.item_plural)} · ${(p.stages || []).length} stages</div>
       <div class="p-bar"><i style="width:0%"></i></div>
       <div class="p-pct">Loading…</div>
     `;
     card.addEventListener('click', () => openBoard(p.id));
+    if (isOwner) {
+      card.querySelector('.project-delete-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete "${p.title}" permanently? This deletes all its items, stages, and history. This cannot be undone.`)) return;
+        const { error } = await DataAPI.deleteProject(p.id);
+        if (error) { showToast(error.message, true); return; }
+        state.projectsSummary = state.projectsSummary.filter(x => x.id !== p.id);
+        renderHome();
+        showToast('Project deleted.');
+      });
+    }
     grid.appendChild(card);
     computeHomeCardPct(p, card);
   });
@@ -257,6 +271,16 @@ async function openBoard(projectId) {
 
 els.boardBackBtn.addEventListener('click', loadHome);
 
+els.deleteProjectBtn.addEventListener('click', async () => {
+  if (!confirm(`Delete "${state.project.title}" permanently? This deletes all its items, stages, and history. This cannot be undone.`)) return;
+  els.deleteProjectBtn.disabled = true;
+  const { error } = await DataAPI.deleteProject(state.project.id);
+  els.deleteProjectBtn.disabled = false;
+  if (error) { showToast(error.message, true); return; }
+  showToast('Project deleted.');
+  await loadHome();
+});
+
 function isReadOnly() { return state.role === 'viewer'; }
 
 function renderBoardHeader() {
@@ -268,6 +292,7 @@ function renderBoardHeader() {
 
   // stage select for bulk bar
   els.bulkStageSelect.innerHTML = state.stages.map(s => `<option value="${s.id}">${escHtml(s.stage_name)}</option>`).join('');
+  els.deleteProjectBtn.style.display = state.role === 'owner' ? 'inline-block' : 'none';
 }
 
 els.boardTitle.addEventListener('blur', async () => {
