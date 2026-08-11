@@ -19,9 +19,75 @@
         <h1>Your Projects</h1>
         <div class="subtitle">Pick a project to open, or start a new one — any kind of production, your own stages.</div>
       </div>
+      <button class="action-btn" id="profileBtn">Profile</button>
       <button class="action-btn" id="signOutBtn">Sign out</button>
     </div>
     <div class="project-grid" id="projectGrid"></div>
+  </div>
+
+  <!-- ============ PROFILE VIEW ============ -->
+  <div class="view" id="profileView">
+    <button class="back-link" id="profileBackBtn">← Back to projects</button>
+    <div class="eyebrow" style="margin-top:14px;">Account</div>
+    <h1 style="margin-bottom:18px;">Profile</h1>
+
+    <div class="profile-grid">
+      <div class="setup-box profile-card">
+        <div class="field" style="display:flex;align-items:center;gap:16px;">
+          <div id="avatarPreview" class="avatar-circle">?</div>
+          <div>
+            <input type="file" id="avatarFileInput" accept="image/*" style="display:none;">
+            <button class="action-btn" id="avatarUploadBtn">Change picture</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Full name</label>
+          <input type="text" id="profileFullName">
+        </div>
+        <div class="setup-actions">
+          <button class="action-btn primary" id="saveNameBtn">Save name</button>
+        </div>
+      </div>
+
+      <div class="setup-box profile-card">
+        <h2 style="margin-bottom:14px;">Email</h2>
+        <div class="field">
+          <label>Current email</label>
+          <input type="text" id="profileCurrentEmail" disabled>
+        </div>
+        <div class="field">
+          <label>New email</label>
+          <input type="email" id="profileNewEmail" placeholder="new@example.com">
+          <div class="field-error" id="err-profileNewEmail"></div>
+        </div>
+        <div class="hint" style="margin-bottom:10px;">You'll get a confirmation link at the new address — the change only takes effect once you click it.</div>
+        <div class="setup-actions">
+          <button class="action-btn primary" id="changeEmailBtn">Change email</button>
+        </div>
+      </div>
+
+      <div class="setup-box profile-card profile-card-password">
+        <h2 style="margin-bottom:14px;">Password</h2>
+        <div class="field">
+          <label>Current password</label>
+          <input type="password" id="profileCurrentPw">
+          <div class="field-error" id="err-profileCurrentPw"></div>
+        </div>
+        <div class="field">
+          <label>New password</label>
+          <input type="password" id="profileNewPw" placeholder="At least 8 characters">
+          <div class="field-error" id="err-profileNewPw"></div>
+        </div>
+        <div class="field">
+          <label>Confirm new password</label>
+          <input type="password" id="profileConfirmPw">
+          <div class="field-error" id="err-profileConfirmPw"></div>
+      </div>
+      <div class="setup-actions">
+        <button class="action-btn primary" id="changePwBtn">Change password</button>
+      </div>
+      </div>
+    </div>
   </div>
 
   <!-- ============ SETUP VIEW ============ -->
@@ -169,7 +235,7 @@
       </div>
       <div class="invite-row" id="attachAddRow">
         <input type="file" id="attachFileInput" style="display:none;">
-        <button class="action-btn" id="attachUploadBtn">📁 Upload file</button>
+        <button class="action-btn" id="attachUploadBtn">Upload file</button>
         <input type="text" id="attachLinkUrl" placeholder="Paste a link (https://…)">
         <input type="text" id="attachLinkLabel" placeholder="Label (optional)" style="max-width:160px;">
         <button class="action-btn primary" id="attachAddLinkBtn">Add link</button>
@@ -180,7 +246,7 @@
     <div class="board" id="board"></div>
     <div style="display:flex;gap:10px;margin-top:14px;">
       <button class="add-item-btn" id="addItemBtn" style="margin-top:0;flex:1;">+ Add item</button>
-      <button class="add-item-btn" id="importCsvBtn" style="margin-top:0;flex:1;">Import CSV</button>
+      <button class="add-item-btn" id="importCsvBtn" style="margin-top:0;flex:1;">+ Import CSV</button>
       <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
     </div>
 

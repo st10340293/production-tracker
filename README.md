@@ -138,3 +138,27 @@ any order): `name, assignee, due_date, notes`. Only `name` is required; rows
 missing it are skipped. `due_date` must be `YYYY-MM-DD` — anything else is
 imported with no due date rather than rejecting the whole row. Handles quoted
 fields with embedded commas, same as a normal spreadsheet export.
+
+## Profile management
+
+`sql/migration_profile.sql` adds an `avatar_url` column to `profiles` plus a
+**public** Storage bucket (`avatars`) — profile pictures aren't sensitive, so
+they're served straight from Supabase's public URL endpoint rather than
+needing signed URLs. Only the owner of a `{user_id}/...` path can
+upload/replace/delete their own avatar; anyone can view it. Run this
+migration once, after `schema.sql`.
+
+Click **Profile** on the home screen for:
+- **Picture** — upload, replaces the previous one.
+- **Name** — updates `profiles.full_name` everywhere it's shown (activity
+  feed, members list).
+- **Email** — uses Supabase Auth's built-in flow: a confirmation link goes to
+  the *new* address, and nothing changes until it's clicked.
+- **Password** — requires re-entering the current password first (re-auths
+  against it before allowing the change), same security bar as most real
+  account-settings pages.
+
+**Not included:** deleting the account itself. That needs a service-role key
+to actually remove an `auth.users` row, which should never live in
+client-side code — would need its own Edge Function (same pattern as
+`send-invite`) if you want it later.

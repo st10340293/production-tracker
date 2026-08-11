@@ -41,6 +41,98 @@ els.signOutBtn?.addEventListener('click', async () => {
   window.location.href = 'login.html';
 });
 
+els.profileBtn?.addEventListener('click', openProfileView);
+els.profileBackBtn?.addEventListener('click', loadHome);
+
+async function openProfileView() {
+  const { data, error } = await DataAPI.getMyProfile();
+  if (error) { showToast(error.message, true); return; }
+
+  els.profileFullName.value = data.full_name || '';
+  els.profileCurrentEmail.value = state.user.email;
+  els.profileNewEmail.value = '';
+  els.profileCurrentPw.value = '';
+  els.profileNewPw.value = '';
+  els.profileConfirmPw.value = '';
+  ['err-profileNewEmail','err-profileCurrentPw','err-profileNewPw','err-profileConfirmPw'].forEach(id => {
+    if (els[id]) els[id].textContent = '';
+  });
+
+  if (data.avatar_url) {
+    els.avatarPreview.innerHTML = `<img src="${data.avatar_url}" alt="Profile picture">`;
+  } else {
+    els.avatarPreview.innerHTML = (data.full_name || state.user.email || '?').charAt(0).toUpperCase();
+  }
+
+  showView('profileView');
+}
+
+els.avatarUploadBtn.addEventListener('click', () => els.avatarFileInput.click());
+els.avatarFileInput.addEventListener('change', async () => {
+  const file = els.avatarFileInput.files[0];
+  els.avatarFileInput.value = '';
+  if (!file) return;
+  els.avatarUploadBtn.disabled = true;
+  els.avatarUploadBtn.innerHTML = '<span class="spinner"></span>Uploading…';
+  const { data, error } = await DataAPI.uploadAvatar(file);
+  els.avatarUploadBtn.disabled = false;
+  els.avatarUploadBtn.textContent = 'Change picture';
+  if (error) { showToast(error.message, true); return; }
+  els.avatarPreview.innerHTML = `<img src="${data.avatar_url}" alt="Profile picture">`;
+  showToast('Picture updated.');
+});
+
+els.saveNameBtn.addEventListener('click', async () => {
+  const name = els.profileFullName.value.trim();
+  if (!name) { showToast('Name cannot be empty.', true); return; }
+  els.saveNameBtn.disabled = true;
+  const { error } = await DataAPI.updateProfile({ full_name: name });
+  els.saveNameBtn.disabled = false;
+  if (error) { showToast(error.message, true); return; }
+  showToast('Name saved.');
+});
+
+els.changeEmailBtn.addEventListener('click', async () => {
+  const newEmail = els.profileNewEmail.value.trim();
+  els['err-profileNewEmail'].textContent = '';
+  if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    els['err-profileNewEmail'].textContent = 'Enter a valid email address.';
+    return;
+  }
+  els.changeEmailBtn.disabled = true;
+  els.changeEmailBtn.innerHTML = '<span class="spinner"></span>Sending…';
+  const { error } = await DataAPI.changeEmail(newEmail);
+  els.changeEmailBtn.disabled = false;
+  els.changeEmailBtn.textContent = 'Change email';
+  if (error) { showToast(error.message, true); return; }
+  els.profileNewEmail.value = '';
+  showToast(`Confirmation link sent to ${newEmail}. Click it to finish the change.`);
+});
+
+els.changePwBtn.addEventListener('click', async () => {
+  const current = els.profileCurrentPw.value;
+  const next = els.profileNewPw.value;
+  const confirm = els.profileConfirmPw.value;
+  ['err-profileCurrentPw','err-profileNewPw','err-profileConfirmPw'].forEach(id => els[id].textContent = '');
+
+  let ok = true;
+  if (!current) { els['err-profileCurrentPw'].textContent = 'Enter your current password.'; ok = false; }
+  if (next.length < 8) { els['err-profileNewPw'].textContent = 'Use at least 8 characters.'; ok = false; }
+  if (confirm !== next) { els['err-profileConfirmPw'].textContent = 'Passwords do not match.'; ok = false; }
+  if (!ok) return;
+
+  els.changePwBtn.disabled = true;
+  els.changePwBtn.innerHTML = '<span class="spinner"></span>Updating…';
+  const { error } = await DataAPI.changePassword(current, next);
+  els.changePwBtn.disabled = false;
+  els.changePwBtn.textContent = 'Change password';
+  if (error) { els['err-profileCurrentPw'].textContent = error.message; return; }
+  els.profileCurrentPw.value = '';
+  els.profileNewPw.value = '';
+  els.profileConfirmPw.value = '';
+  showToast('Password changed.');
+});
+
 // ---------------- utils ----------------
 function showToast(msg, isError) {
   const t = els.toast;
@@ -648,7 +740,7 @@ els.csvFileInput.addEventListener('change', async () => {
   els.importCsvBtn.innerHTML = '<span class="spinner"></span>Importing…';
   const { data, error } = await DataAPI.bulkCreateItems(state.project.id, toImport);
   els.importCsvBtn.disabled = false;
-  els.importCsvBtn.textContent = '📥 Import CSV';
+  els.importCsvBtn.textContent = 'Import CSV';
 
   if (error) { showToast(error.message, true); return; }
   state.items.push(...data);
@@ -1074,7 +1166,7 @@ els.attachFileInput.addEventListener('change', async () => {
   els.attachUploadBtn.innerHTML = '<span class="spinner"></span>Uploading…';
   const { error } = await DataAPI.uploadFileAttachment(state.project.id, state.attachmentsForItemId, file);
   els.attachUploadBtn.disabled = false;
-  els.attachUploadBtn.textContent = '📁 Upload file';
+  els.attachUploadBtn.textContent = 'Upload file';
   if (error) { showToast(error.message, true); return; }
   showToast('File attached.');
   reloadAttachments();

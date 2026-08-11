@@ -45,6 +45,57 @@ const DataAPI = (() => {
     return { data: data.session, error: null };
   }
 
+  // ---------------- Profile ----------------
+
+  async function getMyProfile() {
+    const { data: userData } = await sb.auth.getUser();
+    if (!userData?.user) return { data: null, error: { message: 'Not signed in.' } };
+    const { data, error } = await sb.from('profiles').select('*').eq('id', userData.user.id).single();
+    return { data, error: wrapErr(error, 'Could not load profile.') };
+  }
+
+  async function updateProfile(fields) {
+    const { data: userData } = await sb.auth.getUser();
+    if (!userData?.user) return { data: null, error: { message: 'Not signed in.' } };
+    const { data, error } = await sb.from('profiles').update(fields).eq('id', userData.user.id).select().single();
+    return { data, error: wrapErr(error, 'Could not save profile.') };
+  }
+
+  async function uploadAvatar(file) {
+    const { data: userData } = await sb.auth.getUser();
+    const uid = userData?.user?.id;
+    if (!uid) return { data: null, error: { message: 'Not signed in.' } };
+
+    const ext = file.name.split('.').pop();
+    const path = `${uid}/avatar_${Date.now()}.${ext}`;
+    const { error: upErr } = await sb.storage.from('avatars').upload(path, file);
+    if (upErr) return { data: null, error: wrapErr(upErr, 'Could not upload picture.') };
+
+    const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path);
+    const { data, error } = await sb.from('profiles')
+      .update({ avatar_url: urlData.publicUrl }).eq('id', uid).select().single();
+    if (error) return { data: null, error: wrapErr(error, 'Picture uploaded, but could not be saved.') };
+    return { data, error: null };
+  }
+
+  async function changePassword(currentPassword, newPassword) {
+    const { data: userData } = await sb.auth.getUser();
+    const email = userData?.user?.email;
+    if (!email) return { data: null, error: { message: 'Not signed in.' } };
+
+    // re-authenticate with the current password before allowing the change
+    const { error: reauthErr } = await sb.auth.signInWithPassword({ email, password: currentPassword });
+    if (reauthErr) return { data: null, error: { message: 'Current password is incorrect.' } };
+
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    return { data: null, error: wrapErr(error, 'Could not update password.') };
+  }
+
+  async function changeEmail(newEmail) {
+    const { error } = await sb.auth.updateUser({ email: newEmail });
+    return { data: null, error: wrapErr(error, 'Could not update email.') };
+  }
+
   // ---------------- Projects ----------------
 
   async function listProjects() {
@@ -327,6 +378,7 @@ const DataAPI = (() => {
 
   return {
     signUp, signIn, signOut, getSession,
+    getMyProfile, updateProfile, uploadAvatar, changePassword, changeEmail,
     listProjects, createProject, getProjectFull, updateProjectMeta, deleteProject,
     replaceStages,
     createItem, bulkCreateItems, updateItem, deleteItem, bulkDeleteItems, bulkUpdateItems,
