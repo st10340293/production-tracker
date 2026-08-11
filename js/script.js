@@ -163,6 +163,92 @@ async function loadHome() {
   state.projectsSummary = data;
   renderHome();
   showView('homeView');
+  renderDashboard(); // fires its own queries, doesn't block the view
+}
+
+async function renderDashboard() {
+  const projects = state.projectsSummary;
+  if (!projects.length) {
+    els.dashboardStats.innerHTML = '';
+    els.dashboardTrend.innerHTML = '';
+    return;
+  }
+
+  // ---- aggregate item stats across every project ----
+  const itemToProject = new Map(); // item_id -> { dueDate, finalStageId }
+  projects.forEach(p => {
+    const stagesSorted = [...(p.stages || [])].sort((a, b) => a.stage_order - b.stage_order);
+    const finalStageId = stagesSorted.length ? stagesSorted[stagesSorted.length - 1].id : null;
+    (p.items || []).forEach(item => {
+      itemToProject.set(item.id, { dueDate: item.due_date, finalStageId });
+    });
+  });
+  const itemIds = [...itemToProject.keys()];
+
+  const { data: progressRows, error: progErr } = await DataAPI.getProgressForItems(itemIds);
+  if (progErr) { els.dashboardStats.innerHTML = ''; return; }
+
+  const finalDoneSet = new Set();  // item ids completed on their project's final stage
+  const anyDoneSet = new Set();    // item ids with at least one completed stage
+  (progressRows || []).forEach(row => {
+    anyDoneSet.add(row.item_id);
+    const meta = itemToProject.get(row.item_id);
+    if (meta && row.stage_id === meta.finalStageId) finalDoneSet.add(row.item_id);
+  });
+
+  const today = todayStr();
+  let complete = 0, overdue = 0, inProgress = 0, notStarted = 0;
+  itemToProject.forEach((meta, itemId) => {
+    if (finalDoneSet.has(itemId)) { complete++; return; }
+    if (meta.dueDate && meta.dueDate < today) { overdue++; return; }
+    if (anyDoneSet.has(itemId)) { inProgress++; return; }
+    notStarted++;
+  });
+  const total = itemIds.length;
+  const pct = total ? Math.round(complete / total * 100) : 0;
+
+  els.dashboardStats.innerHTML = `
+    <div class="stat-box"><div class="stat-label">Active projects</div><div class="stat-value">${projects.length}</div></div>
+    <div class="stat-box"><div class="stat-label">Total items</div><div class="stat-value">${total}</div></div>
+    <div class="stat-box"><div class="stat-label">Complete</div><div class="stat-value" style="color:var(--ok)">${complete} <span style="font-size:12px;color:var(--text-faint)">(${pct}%)</span></div></div>
+    <div class="stat-box"><div class="stat-label">In progress</div><div class="stat-value" style="color:var(--warn)">${inProgress}</div></div>
+    <div class="stat-box"><div class="stat-label">Overdue</div><div class="stat-value" style="color:var(--danger)">${overdue}</div></div>
+  `;
+
+  // ---- 7-day activity trend, pulled straight from the activity log ----
+  const projectIds = projects.map(p => p.id);
+  const { data: activityRows, error: actErr } = await DataAPI.getRecentActivityTimestamps(projectIds, 7);
+  if (actErr) { els.dashboardTrend.innerHTML = ''; return; }
+
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push({ key: d.toISOString().slice(0, 10), label: d.toLocaleDateString(undefined, { weekday: 'short' })[0] });
+  }
+  const countByDay = {};
+  (activityRows || []).forEach(row => {
+    const key = row.created_at.slice(0, 10);
+    countByDay[key] = (countByDay[key] || 0) + 1;
+  });
+  const maxCount = Math.max(1, ...days.map(d => countByDay[d.key] || 0));
+
+  els.dashboardTrend.innerHTML = `
+    <div class="trend-box">
+      <h2>Activity — last 7 days</h2>
+      <div class="trend-sub">${(activityRows || []).length} events across all projects</div>
+      <div class="trend-chart">
+        ${days.map(d => {
+          const c = countByDay[d.key] || 0;
+          const h = Math.round((c / maxCount) * 100);
+          return `<div class="trend-bar" title="${c} events">
+            <div class="bar-fill" style="height:${h}%"></div>
+            <div class="bar-label">${d.label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function renderHome() {
@@ -232,17 +318,27 @@ async function computeHomeCardPct(p, card) {
 // SETUP VIEW (new project)
 // ============================================================
 let setupStages = [];
+let setupTrackMode = 'multiple';
 
 function openSetupView() {
   setupStages = ['Not Started', 'In Progress', 'Review', 'Complete'];
+  setupTrackMode = 'multiple';
   els.setupName.value = '';
   els.setupItemSingular.value = 'Track';
   els.setupItemPlural.value = 'Tracks';
   showFieldError2(els.setupName, els['err-setupName'], '');
   renderStageEditor(els.setupStageEditor, setupStages, (list) => { setupStages = list; });
+  updateSetupModeButtons();
   showView('setupView');
 }
 els.setupBackBtn.addEventListener('click', () => showView('homeView'));
+
+function updateSetupModeButtons() {
+  els.modeMultipleBtn.classList.toggle('primary', setupTrackMode === 'multiple');
+  els.modeSingleBtn.classList.toggle('primary', setupTrackMode === 'single');
+}
+els.modeMultipleBtn.addEventListener('click', () => { setupTrackMode = 'multiple'; updateSetupModeButtons(); });
+els.modeSingleBtn.addEventListener('click', () => { setupTrackMode = 'single'; updateSetupModeButtons(); });
 
 els.addStageBtn.addEventListener('click', () => {
   setupStages.push('New Stage');
@@ -308,7 +404,8 @@ els.createProjectBtn.addEventListener('click', async () => {
     title,
     itemSingular: els.setupItemSingular.value.trim() || 'Item',
     itemPlural: els.setupItemPlural.value.trim() || 'Items',
-    stages: setupStages
+    stages: setupStages,
+    trackMode: setupTrackMode
   });
   els.createProjectBtn.disabled = false;
   els.createProjectBtn.textContent = 'Create board';
@@ -353,6 +450,7 @@ async function openBoard(projectId) {
   els.membersPanel.classList.remove('open');
   els.activityPanel.classList.remove('open');
   els.attachmentsPanel.classList.remove('open');
+  els.modePanel.classList.remove('open');
   els.bulkBar.classList.remove('open');
 
   renderBoardHeader();
@@ -385,6 +483,14 @@ function renderBoardHeader() {
   // stage select for bulk bar
   els.bulkStageSelect.innerHTML = state.stages.map(s => `<option value="${s.id}">${escHtml(s.stage_name)}</option>`).join('');
   els.deleteProjectBtn.style.display = state.role === 'owner' ? 'inline-block' : 'none';
+
+  // single-track mode: hide the multi-item controls, unless the one track
+  // got deleted and we need Add Item back to recover.
+  const isSingle = state.project.track_mode === 'single';
+  const needsRecovery = isSingle && state.items.length === 0;
+  els.addItemBtn.style.display = (!isSingle || needsRecovery) ? '' : 'none';
+  els.importCsvBtn.style.display = isSingle ? 'none' : '';
+  els.searchBox.style.display = isSingle ? 'none' : '';
 }
 
 els.boardTitle.addEventListener('blur', async () => {
@@ -504,6 +610,11 @@ els.bulkDeleteBtn.addEventListener('click', async () => {
 // ============================================================
 function visibleItems() {
   let list = [...state.items];
+  if (state.project.track_mode === 'single') {
+    list = state.project.primary_item_id
+      ? list.filter(i => i.id === state.project.primary_item_id)
+      : list.slice(0, 1);
+  }
   if (state.filter !== 'all') list = list.filter(i => getStatus(i) === state.filter);
   if (state.searchQuery) {
     const q = state.searchQuery.toLowerCase();
@@ -524,7 +635,7 @@ function renderBoard() {
   const board = els.board;
   board.innerHTML = '';
   const list = visibleItems();
-  const canDrag = state.filter === 'all' && !state.sortByDue && !state.searchQuery && !isReadOnly();
+  const canDrag = state.filter === 'all' && !state.sortByDue && !state.searchQuery && state.project.track_mode !== 'single' && !isReadOnly();
 
   if (!list.length) {
     board.innerHTML = '<div class="empty-note">No items match this filter.</div>';
@@ -652,6 +763,7 @@ async function deleteItem(itemId) {
   state.items = state.items.filter(i => i.id !== itemId);
   state.pendingItemFields.delete(itemId);
   for (const k of [...state.pendingProgress.keys()]) if (k.startsWith(itemId + ':')) state.pendingProgress.delete(k);
+  if (state.project.primary_item_id === itemId) state.project.primary_item_id = null; // DB already nulled it via ON DELETE SET NULL
   showToast('Item deleted.');
   renderBoardHeader();
   renderBoard();
@@ -666,6 +778,10 @@ async function addItem() {
   els.addItemBtn.disabled = false;
   if (error) { showToast(error.message, true); return; }
   state.items.push(data);
+  if (state.project.track_mode === 'single' && !state.project.primary_item_id) {
+    const { error: modeErr } = await DataAPI.setTrackMode(state.project.id, 'single', data.id);
+    if (!modeErr) state.project.primary_item_id = data.id;
+  }
   renderBoardHeader();
   renderBoard();
 }
@@ -805,6 +921,55 @@ els.saveBtn.addEventListener('click', async () => {
 let boardStageNames = [];
 let boardStageIds = [];
 
+// ============================================================
+// BOARD MODE (single track vs multiple)
+// ============================================================
+let modeChoice = 'multiple';
+
+els.modeBtn.addEventListener('click', () => {
+  closeOtherPanels('modePanel');
+  modeChoice = state.project.track_mode || 'multiple';
+  updateModeButtons();
+  els.modePanel.classList.toggle('open');
+});
+
+function updateModeButtons() {
+  els.modeBtnMultiple.classList.toggle('primary', modeChoice === 'multiple');
+  els.modeBtnSingle.classList.toggle('primary', modeChoice === 'single');
+  const needsPicker = modeChoice === 'single' && state.items.length > 1;
+  els.primaryItemPickerWrap.style.display = needsPicker ? 'block' : 'none';
+  if (needsPicker) {
+    const current = state.project.primary_item_id;
+    els.primaryItemPicker.innerHTML = state.items.map(i =>
+      `<option value="${i.id}" ${i.id === current ? 'selected' : ''}>${escHtml(i.name)}</option>`
+    ).join('');
+  }
+}
+els.modeBtnMultiple.addEventListener('click', () => { modeChoice = 'multiple'; updateModeButtons(); });
+els.modeBtnSingle.addEventListener('click', () => { modeChoice = 'single'; updateModeButtons(); });
+
+els.saveModeBtn.addEventListener('click', async () => {
+  let primaryId = null;
+  if (modeChoice === 'single') {
+    if (state.items.length > 1) {
+      primaryId = els.primaryItemPicker.value;
+      if (!primaryId) { showToast('Pick which item stays as the track.', true); return; }
+    } else {
+      primaryId = state.items[0]?.id || null;
+    }
+  }
+  els.saveModeBtn.disabled = true;
+  const { error } = await DataAPI.setTrackMode(state.project.id, modeChoice, primaryId);
+  els.saveModeBtn.disabled = false;
+  if (error) { showToast(error.message, true); return; }
+  state.project.track_mode = modeChoice;
+  state.project.primary_item_id = primaryId;
+  els.modePanel.classList.remove('open');
+  showToast(modeChoice === 'single' ? 'Switched to one track.' : 'Switched to multiple tracks.');
+  renderBoardHeader();
+  renderBoard();
+});
+
 els.editStagesBtn.addEventListener('click', () => {
   closeOtherPanels('stagePanel');
   boardStageNames = state.stages.map(s => s.stage_name);
@@ -839,7 +1004,7 @@ els.summaryBtn.addEventListener('click', () => {
 });
 
 function closeOtherPanels(keep) {
-  ['summaryPanel', 'stagePanel', 'membersPanel', 'activityPanel', 'attachmentsPanel'].forEach(id => {
+  ['summaryPanel', 'stagePanel', 'membersPanel', 'activityPanel', 'attachmentsPanel', 'modePanel'].forEach(id => {
     if (id !== keep) els[id].classList.remove('open');
   });
 }
@@ -1194,7 +1359,7 @@ document.addEventListener('keydown', (e) => {
 
   if (e.key === 'Escape') {
     if (state.selectMode) { toggleSelectMode(false); return; }
-    ['summaryPanel','stagePanel','membersPanel','activityPanel','attachmentsPanel'].forEach(id => els[id].classList.remove('open'));
+    ['summaryPanel','stagePanel','membersPanel','activityPanel','attachmentsPanel','modePanel'].forEach(id => els[id].classList.remove('open'));
     return;
   }
   if (typing) return;

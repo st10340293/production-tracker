@@ -22,6 +22,10 @@
       <button class="action-btn" id="profileBtn">Profile</button>
       <button class="action-btn" id="signOutBtn">Sign out</button>
     </div>
+
+    <div class="summary-grid" id="dashboardStats" style="margin-top:22px;"></div>
+    <div id="dashboardTrend" style="margin-bottom:22px;"></div>
+
     <div class="project-grid" id="projectGrid"></div>
   </div>
 
@@ -117,6 +121,14 @@
         <button class="add-stage-btn" id="addStageBtn">+ Add stage</button>
         <div class="hint">The last stage is treated as the finish line — items with it checked show as Complete. Edit, reorder, or remove stages any time from the board.</div>
       </div>
+      <div class="field">
+        <label>How many will this project track?</label>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="action-btn primary" id="modeMultipleBtn" data-mode="multiple">Multiple</button>
+          <button type="button" class="action-btn" id="modeSingleBtn" data-mode="single">Just one</button>
+        </div>
+        <div class="hint">You can change this later from the board.</div>
+      </div>
       <div class="setup-actions">
         <button class="action-btn primary" id="createProjectBtn">Create board</button>
       </div>
@@ -153,6 +165,7 @@
         <button class="action-btn" id="selectModeBtn">Select</button>
         <button class="action-btn" id="membersBtn">Members</button>
         <button class="action-btn" id="activityBtn">Activity</button>
+        <button class="action-btn" id="modeBtn">Mode</button>
         <button class="action-btn" id="editStagesBtn">Stages</button>
         <button class="action-btn" id="summaryBtn">Summary</button>
         <button class="action-btn primary" id="saveBtn">Save Progress</button>
@@ -200,6 +213,25 @@
       <div class="stage-editor" id="boardStageEditor"></div>
       <button class="add-stage-btn" id="boardAddStageBtn">+ Add stage</button>
       <div class="hint">Renaming a stage keeps its progress. Removing a stage discards its checkmarks. Reordering just changes display order.</div>
+    </div>
+
+    <!-- board mode panel -->
+    <div class="summary-panel" id="modePanel">
+      <div class="summary-head">
+        <h2>Board Mode</h2>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="action-btn" id="modeBtnMultiple" data-mode="multiple">Multiple tracks</button>
+        <button class="action-btn" id="modeBtnSingle" data-mode="single">One track</button>
+      </div>
+      <div class="field" id="primaryItemPickerWrap" style="display:none;">
+        <label>Which one stays as the track?</label>
+        <select id="primaryItemPicker"></select>
+      </div>
+      <div class="hint">Multiple tracks shows the full board. One track hides Add item, CSV import, and search — everything else stays saved, just out of view until you switch back.</div>
+      <div class="setup-actions">
+        <button class="action-btn primary" id="saveModeBtn">Save</button>
+      </div>
     </div>
 
     <!-- members / sharing panel -->

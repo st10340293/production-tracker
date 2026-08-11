@@ -465,6 +465,17 @@ input.invalid{border-color:var(--danger);}
   .profile-grid{grid-template-columns:1fr;}
 }
 
+.trend-box{
+  background:var(--bg-panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 18px;
+}
+.trend-box h2{font-size:14px;margin-bottom:2px;}
+.trend-box .trend-sub{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);margin-bottom:10px;}
+.trend-chart{display:flex;align-items:flex-end;gap:8px;height:64px;}
+.trend-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:5px;}
+.trend-bar .bar-fill{width:100%;max-width:28px;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px;transition:height .2s;}
+.trend-bar .bar-label{font-family:var(--font-mono);font-size:9px;color:var(--text-faint);text-transform:uppercase;}
+
 footer{margin-top:30px;text-align:center;color:var(--text-faint);font-family:var(--font-mono);font-size:11px;}
 
 /* ---------- toast ---------- */

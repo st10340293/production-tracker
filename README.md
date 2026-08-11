@@ -122,7 +122,7 @@ Supabase **Storage** bucket (`attachments`), with RLS on both the table and
 the storage objects — same owner/editor/viewer role model as everything
 else. Run this migration once, after `schema.sql`.
 
-- Each item card has a **📎 Attachments** button opening a panel scoped to
+- Each item card has a **Attachments** button opening a panel scoped to
   that item: upload a file, or paste a link with an optional label.
 - Files are stored under `{project_id}/{item_id}/{filename}` in the bucket;
   the bucket is private, so viewing/downloading always goes through a
@@ -132,7 +132,7 @@ else. Run this migration once, after `schema.sql`.
 
 ## CSV import
 
-Next to "+ Add item" is **Import CSV** — no migration needed, pure
+Next to "+ Add item" is **+ Import CSV** — no migration needed, pure
 client-side parsing plus one bulk insert. Expected header row (case-insensitive,
 any order): `name, assignee, due_date, notes`. Only `name` is required; rows
 missing it are skipped. `due_date` must be `YYYY-MM-DD` — anything else is
@@ -162,3 +162,36 @@ Click **Profile** on the home screen for:
 to actually remove an `auth.users` row, which should never live in
 client-side code — would need its own Edge Function (same pattern as
 `send-invite`) if you want it later.
+
+## Home dashboard
+
+No migration needed — two extra bulk reads on top of data already fetched
+for the project grid. Above your project cards, Home now shows:
+- **Aggregate stats** — active projects, total items, complete (with %),
+  in progress, overdue, summed across every project you belong to.
+- **7-day activity trend** — a small bar chart pulled straight from the
+  `activity` table, one bar per day, showing how many logged events
+  (item/stage/member changes) happened across all your projects.
+
+Both queries batch by ID (`item_progress` for every item across every
+project in one call, same for `activity`) rather than querying per project,
+so opening Home doesn't get slower as you add more projects.
+
+## Single-track vs multi-track projects
+
+`sql/migration_track_mode.sql` adds `track_mode` ('single' | 'multiple',
+default 'multiple') and `primary_item_id` to `projects`. Run once, after
+`schema.sql`.
+
+- **At setup**, pick "Just one" or "Multiple" — "Just one" auto-creates that
+  single item for you, named after your singular label.
+- **One track mode** hides "+ Add item", "+ Import CSV", and the search box
+  — the board only ever shows that one item's stages/assignee/due date.
+  Everything else (stages, attachments, activity, members) works exactly
+  the same.
+- **Switch anytime** via the toolbar's **🎚 Mode** button. Going multi → one
+  while several items exist asks you to pick which one stays as "the"
+  track — the rest aren't deleted, just hidden from the board until you
+  switch back to multiple.
+- If the one track ever gets deleted, "+ Add item" reappears automatically
+  so you're not stuck with an empty board and no way to add one back.

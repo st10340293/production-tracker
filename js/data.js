@@ -104,21 +104,44 @@ const DataAPI = (() => {
       .select(`
         id, title, description, item_singular, item_plural, owner_id, created_at, updated_at,
         stages ( id, stage_name, stage_order ),
-        items ( id )
+        items!items_project_id_fkey ( id, due_date )
       `)
       .order('created_at', { ascending: false });
     if (error) return { data: null, error: wrapErr(error, 'Could not load projects.') };
     return { data, error: null };
   }
 
-  async function createProject({ title, itemSingular, itemPlural, stages }) {
+  // one bulk read across every item in every project the user belongs to —
+  // used to compute the home-screen dashboard without an N+1 query per card.
+  async function getProgressForItems(itemIds) {
+    if (!itemIds.length) return { data: [], error: null };
+    const { data, error } = await sb
+      .from('item_progress')
+      .select('item_id, stage_id, completed')
+      .in('item_id', itemIds)
+      .eq('completed', true);
+    return { data, error: wrapErr(error, 'Could not load progress.') };
+  }
+
+  async function getRecentActivityTimestamps(projectIds, days = 7) {
+    if (!projectIds.length) return { data: [], error: null };
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    const { data, error } = await sb
+      .from('activity')
+      .select('created_at')
+      .in('project_id', projectIds)
+      .gte('created_at', since);
+    return { data, error: wrapErr(error, 'Could not load activity trend.') };
+  }
+
+  async function createProject({ title, itemSingular, itemPlural, stages, trackMode }) {
     const { data: userData } = await sb.auth.getUser();
     const uid = userData?.user?.id;
     if (!uid) return { data: null, error: { message: 'You are not signed in.' } };
 
     const { data: project, error: pErr } = await sb
       .from('projects')
-      .insert({ title, item_singular: itemSingular, item_plural: itemPlural, owner_id: uid })
+      .insert({ title, item_singular: itemSingular, item_plural: itemPlural, owner_id: uid, track_mode: trackMode || 'multiple' })
       .select().single();
     if (pErr) return { data: null, error: wrapErr(pErr, 'Could not create project.') };
 
@@ -130,7 +153,25 @@ const DataAPI = (() => {
       const { error: sErr } = await sb.from('stages').insert(rows);
       if (sErr) return { data: null, error: wrapErr(sErr, 'Project created, but stages failed to save.') };
     }
+
+    if (trackMode === 'single') {
+      const { data: item, error: itemErr } = await sb.from('items')
+        .insert({ project_id: project.id, name: itemSingular, sort_order: 0 })
+        .select().single();
+      if (!itemErr && item) {
+        await sb.from('projects').update({ primary_item_id: item.id }).eq('id', project.id);
+        project.primary_item_id = item.id;
+      }
+    }
+
     return { data: project, error: null };
+  }
+
+  async function setTrackMode(projectId, trackMode, primaryItemId) {
+    const { data, error } = await sb.from('projects')
+      .update({ track_mode: trackMode, primary_item_id: primaryItemId })
+      .eq('id', projectId).select().single();
+    return { data, error: wrapErr(error, 'Could not update board mode.') };
   }
 
   async function getProjectFull(projectId) {
@@ -379,7 +420,7 @@ const DataAPI = (() => {
   return {
     signUp, signIn, signOut, getSession,
     getMyProfile, updateProfile, uploadAvatar, changePassword, changeEmail,
-    listProjects, createProject, getProjectFull, updateProjectMeta, deleteProject,
+    listProjects, getProgressForItems, getRecentActivityTimestamps, createProject, setTrackMode, getProjectFull, updateProjectMeta, deleteProject,
     replaceStages,
     createItem, bulkCreateItems, updateItem, deleteItem, bulkDeleteItems, bulkUpdateItems,
     setProgress, bulkSetProgress,
