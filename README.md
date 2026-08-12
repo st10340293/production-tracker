@@ -185,7 +185,7 @@ default 'multiple') and `primary_item_id` to `projects`. Run once, after
 
 - **At setup**, pick "Just one" or "Multiple" — "Just one" auto-creates that
   single item for you, named after your singular label.
-- **One track mode** hides "+ Add item", "Import CSV", and the search box
+- **One track mode** hides "+ Add item", "📥 Import CSV", and the search box
   — the board only ever shows that one item's stages/assignee/due date.
   Everything else (stages, attachments, activity, members) works exactly
   the same.
@@ -204,3 +204,25 @@ in each page's `<head>` (index, login, signup) applies the saved preference
 before first paint, so there's no flash of the wrong theme on load. Choosing
 a theme on Home carries over to login/signup too, since it's the same
 `localStorage` key everywhere.
+
+## Item detail modal + comments
+
+`sql/migration_comments.sql` adds a `comments` table — same role model as
+everything else (owner/editor can post, author or owner/editor can delete),
+and every comment gets logged to the activity feed too. Run once, after
+`schema.sql` and `migration_activity_log.sql`.
+
+Each item card now has an **⤢ Open** button alongside Attachments, opening a
+full-screen modal with everything about that item in one place: name,
+assignee, due date, stage toggles, notes (the `items.notes` column existed
+in the schema from the start but had no UI until now), attachments, and a
+comment thread. Inline card editing still works exactly as before — the
+modal is an additional, less cramped way to work with an item, not a
+replacement.
+
+Field edits inside the modal feed into the same pending-changes queue as the
+card (`queueField`), so they still batch into **Save Progress** rather than
+writing on every keystroke — editing via the modal or the card behaves
+identically from a save standpoint. Attachment uploads, comment posts, and
+item deletion from the modal are immediate, same as everywhere else those
+actions live.

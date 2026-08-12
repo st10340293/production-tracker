@@ -289,6 +289,54 @@
 
 </div>
 
+<div class="modal-overlay" id="itemDetailModal">
+  <div class="modal-box">
+    <button class="modal-close" id="closeItemDetailBtn">×</button>
+    <span class="status-pill" id="modalStatusPill" style="margin-bottom:10px;display:inline-block;"></span>
+    <input type="text" id="modalItemName" style="font-family:var(--font-display);font-size:22px;text-transform:uppercase;background:none;border:none;border-bottom:1px dashed var(--line-soft);color:var(--text);width:100%;padding:4px 0;outline:none;margin-bottom:16px;">
+
+    <div class="field-row">
+      <div class="field"><label>Assignee</label><input type="text" id="modalAssignee" placeholder="Unassigned"></div>
+      <div class="field"><label>Due date</label><input type="date" id="modalDueDate"></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Stages</h3>
+      <div class="ic-stages" id="modalStages" style="padding:0;"></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Notes</h3>
+      <textarea id="modalNotes" rows="4" placeholder="Add any details worth keeping with this item…" style="width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:13px;resize:vertical;"></textarea>
+    </div>
+
+    <div class="modal-section">
+      <h3>Attachments</h3>
+      <div class="invite-row" id="modalAttachAddRow">
+        <input type="file" id="modalAttachFileInput" style="display:none;">
+        <button class="action-btn" id="modalAttachUploadBtn">Upload file</button>
+        <input type="text" id="modalAttachLinkUrl" placeholder="Paste a link (https://…)">
+        <button class="action-btn primary" id="modalAttachAddLinkBtn">Add link</button>
+      </div>
+      <div id="modalAttachmentsList"></div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Comments</h3>
+      <div id="modalCommentsList"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="modalCommentInput" placeholder="Write a comment…" style="flex:1;">
+        <button class="action-btn primary" id="modalPostCommentBtn">Post</button>
+      </div>
+    </div>
+
+    <div class="modal-section" style="display:flex;justify-content:space-between;align-items:center;">
+      <button class="action-btn danger" id="modalDeleteItemBtn">Delete item</button>
+      <button class="action-btn" id="modalCloseBtn2">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="loading-overlay" id="loadingOverlay"><span class="spinner"></span>&nbsp;Loading…</div>
 <div class="toast" id="toast"></div>
 

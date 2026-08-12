@@ -32,7 +32,7 @@ document.querySelectorAll('[id]').forEach(el => { els[el.id] = el; });
 function syncThemeButtonLabel() {
   if (!els.themeToggleBtn) return;
   const isLight = document.documentElement.classList.contains('theme-light');
-  els.themeToggleBtn.textContent = isLight ? 'Dark' : 'Light';
+  els.themeToggleBtn.textContent = isLight ?  'Dark': 'Light';
 }
 syncThemeButtonLabel();
 els.themeToggleBtn?.addEventListener('click', () => {
@@ -464,6 +464,7 @@ async function openBoard(projectId) {
   els.activityPanel.classList.remove('open');
   els.attachmentsPanel.classList.remove('open');
   els.modePanel.classList.remove('open');
+  els.itemDetailModal.classList.remove('open');
   els.bulkBar.classList.remove('open');
 
   renderBoardHeader();
@@ -684,6 +685,7 @@ function renderItemCard(item, canDrag) {
     <div class="ic-tear"></div>
     <div class="ic-stages"></div>
     <div class="ic-footer">
+      <button class="action-btn ic-expand-btn" data-item="${item.id}">⤢ Open</button>
       <button class="action-btn ic-attach-btn" data-item="${item.id}">📎 Attachments</button>
     </div>
   `;
@@ -724,6 +726,7 @@ function renderItemCard(item, canDrag) {
   }
 
   card.querySelector('.ic-attach-btn').addEventListener('click', () => openAttachmentsPanel(item.id, item.name));
+  card.querySelector('.ic-expand-btn').addEventListener('click', () => openItemDetail(item.id));
 
   if (canDrag) {
     card.addEventListener('dragstart', () => { state.draggedItemId = item.id; card.classList.add('dragging'); });
@@ -869,7 +872,7 @@ els.csvFileInput.addEventListener('change', async () => {
   els.importCsvBtn.innerHTML = '<span class="spinner"></span>Importing…';
   const { data, error } = await DataAPI.bulkCreateItems(state.project.id, toImport);
   els.importCsvBtn.disabled = false;
-  els.importCsvBtn.textContent = 'Import CSV';
+  els.importCsvBtn.textContent = '+ Import CSV';
 
   if (error) { showToast(error.message, true); return; }
   state.items.push(...data);
@@ -1364,6 +1367,196 @@ els.attachAddLinkBtn.addEventListener('click', async () => {
 });
 
 // ============================================================
+// ITEM DETAIL MODAL (name, assignee, due, notes, stages, attachments, comments)
+// ============================================================
+function openItemDetail(itemId) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+  state.modalItemId = itemId;
+  const pending = state.pendingItemFields.get(itemId) || {};
+  const readOnly = isReadOnly();
+
+  els.modalItemName.value = pending.name ?? item.name;
+  els.modalAssignee.value = pending.assignee ?? (item.assignee || '');
+  els.modalDueDate.value = pending.due_date ?? (item.due_date || '');
+  els.modalNotes.value = pending.notes ?? (item.notes || '');
+  [els.modalItemName, els.modalAssignee, els.modalDueDate, els.modalNotes].forEach(el => el.disabled = readOnly);
+  els.modalAttachAddRow.style.display = readOnly ? 'none' : 'flex';
+  els.modalDeleteItemBtn.style.display = readOnly ? 'none' : 'inline-block';
+  els.modalCommentInput.disabled = readOnly;
+  els.modalPostCommentBtn.style.display = readOnly ? 'none' : 'inline-block';
+
+  renderModalStages(item);
+  updateModalStatusPill(item);
+  els.itemDetailModal.classList.add('open');
+  loadModalAttachments(itemId);
+  loadModalComments(itemId);
+
+  // assigned fresh on every open (not addEventListener) so the modal never
+  // accumulates duplicate handlers across repeated opens on different items
+  els.modalItemName.oninput = () => { queueField(itemId, 'name', els.modalItemName.value); renderBoard(); };
+  els.modalAssignee.oninput = () => queueField(itemId, 'assignee', els.modalAssignee.value);
+  els.modalDueDate.onchange = () => {
+    queueField(itemId, 'due_date', els.modalDueDate.value || null);
+    updateModalStatusPill(state.items.find(i => i.id === itemId));
+    renderBoard();
+  };
+  els.modalNotes.oninput = () => queueField(itemId, 'notes', els.modalNotes.value);
+
+  els.modalAttachUploadBtn.onclick = () => els.modalAttachFileInput.click();
+  els.modalAttachFileInput.onchange = async () => {
+    const file = els.modalAttachFileInput.files[0];
+    els.modalAttachFileInput.value = '';
+    if (!file) return;
+    els.modalAttachUploadBtn.disabled = true;
+    els.modalAttachUploadBtn.innerHTML = '<span class="spinner"></span>Uploading…';
+    const { error } = await DataAPI.uploadFileAttachment(state.project.id, itemId, file);
+    els.modalAttachUploadBtn.disabled = false;
+    els.modalAttachUploadBtn.textContent = 'Upload file';
+    if (error) { showToast(error.message, true); return; }
+    showToast('File attached.');
+    loadModalAttachments(itemId);
+  };
+  els.modalAttachAddLinkBtn.onclick = async () => {
+    const url = els.modalAttachLinkUrl.value.trim();
+    if (!url) { showToast('Paste a link first.', true); return; }
+    els.modalAttachAddLinkBtn.disabled = true;
+    const { error } = await DataAPI.addLinkAttachment(state.project.id, itemId, url, '');
+    els.modalAttachAddLinkBtn.disabled = false;
+    if (error) { showToast(error.message, true); return; }
+    els.modalAttachLinkUrl.value = '';
+    showToast('Link added.');
+    loadModalAttachments(itemId);
+  };
+
+  els.modalPostCommentBtn.onclick = async () => {
+    const body = els.modalCommentInput.value.trim();
+    if (!body) return;
+    els.modalPostCommentBtn.disabled = true;
+    const { error } = await DataAPI.addComment(itemId, state.project.id, body);
+    els.modalPostCommentBtn.disabled = false;
+    if (error) { showToast(error.message, true); return; }
+    els.modalCommentInput.value = '';
+    loadModalComments(itemId);
+  };
+
+  els.modalDeleteItemBtn.onclick = async () => {
+    await deleteItem(itemId);
+    els.itemDetailModal.classList.remove('open');
+  };
+}
+
+function closeItemDetail() { els.itemDetailModal.classList.remove('open'); }
+els.closeItemDetailBtn.addEventListener('click', closeItemDetail);
+els.modalCloseBtn2.addEventListener('click', closeItemDetail);
+els.itemDetailModal.addEventListener('click', (e) => { if (e.target === els.itemDetailModal) closeItemDetail(); });
+
+function renderModalStages(item) {
+  els.modalStages.innerHTML = '';
+  state.stages.forEach((s, idx) => {
+    const done = getProg(item.id, s.id);
+    const tag = document.createElement('span');
+    tag.className = `stage-tag ${done ? 'done' : ''} ${idx === state.stages.length - 1 ? 'final' : ''}`;
+    tag.textContent = s.stage_name;
+    if (!isReadOnly()) {
+      tag.onclick = () => {
+        state.pendingProgress.set(`${item.id}:${s.id}`, !done);
+        markDirty();
+        renderBoard();
+        const fresh = state.items.find(i => i.id === item.id);
+        renderModalStages(fresh);
+        updateModalStatusPill(fresh);
+      };
+    }
+    els.modalStages.appendChild(tag);
+  });
+}
+
+function updateModalStatusPill(item) {
+  const status = getStatus(item);
+  els.modalStatusPill.textContent = statusLabel(status);
+  els.modalStatusPill.className = `status-pill ${status}`;
+  els.modalStatusPill.style.marginBottom = '10px';
+  els.modalStatusPill.style.display = 'inline-block';
+}
+
+async function loadModalAttachments(itemId) {
+  els.modalAttachmentsList.innerHTML = '<div class="empty-note">Loading…</div>';
+  const { data, error } = await DataAPI.listAttachments(itemId);
+  if (error) { els.modalAttachmentsList.innerHTML = `<div class="empty-note">${escHtml(error.message)}</div>`; return; }
+  renderModalAttachments(data);
+}
+
+function renderModalAttachments(rows) {
+  if (!rows.length) {
+    els.modalAttachmentsList.innerHTML = '<div class="empty-note">No attachments yet.</div>';
+    return;
+  }
+  els.modalAttachmentsList.innerHTML = rows.map(a => `
+    <div class="attach-row" data-id="${a.id}">
+      <span class="attach-icon">${a.kind === 'file' ? '📄' : '🔗'}</span>
+      <span class="attach-name" data-open="${a.id}">${escHtml(a.label)}</span>
+      <span class="attach-meta">${a.kind === 'file' ? formatBytes(a.size_bytes) : 'link'}</span>
+      ${!isReadOnly() ? `<button class="action-btn danger" data-del="${a.id}">Remove</button>` : ''}
+    </div>
+  `).join('');
+
+  const rowsById = new Map(rows.map(r => [r.id, r]));
+  els.modalAttachmentsList.querySelectorAll('[data-open]').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', async () => {
+      const a = rowsById.get(el.dataset.open);
+      if (a.kind === 'link') { window.open(a.url, '_blank'); return; }
+      const { data: url, error } = await DataAPI.getSignedUrl(a.file_path);
+      if (error) { showToast(error.message, true); return; }
+      window.open(url, '_blank');
+    });
+  });
+  els.modalAttachmentsList.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const a = rowsById.get(btn.dataset.del);
+      if (!confirm(`Remove "${a.label}"?`)) return;
+      btn.disabled = true;
+      const { error } = await DataAPI.deleteAttachment(a);
+      if (error) { showToast(error.message, true); btn.disabled = false; return; }
+      showToast('Attachment removed.');
+      loadModalAttachments(state.modalItemId);
+    });
+  });
+}
+
+async function loadModalComments(itemId) {
+  els.modalCommentsList.innerHTML = '<div class="empty-note">Loading…</div>';
+  const { data, error } = await DataAPI.listComments(itemId);
+  if (error) { els.modalCommentsList.innerHTML = `<div class="empty-note">${escHtml(error.message)}</div>`; return; }
+  renderModalComments(data);
+}
+
+function renderModalComments(rows) {
+  if (!rows.length) {
+    els.modalCommentsList.innerHTML = '<div class="empty-note">No comments yet.</div>';
+    return;
+  }
+  els.modalCommentsList.innerHTML = rows.map(c => {
+    const author = c.profiles?.full_name || c.profiles?.email || 'Someone';
+    const canDelete = !isReadOnly() && (c.author_id === state.user.id || state.role === 'owner' || state.role === 'editor');
+    return `<div class="comment-row" data-id="${c.id}">
+      <div class="comment-meta">${escHtml(author)} · ${timeAgo(c.created_at)} ${canDelete ? `<button class="comment-delete" data-cdel="${c.id}">Delete</button>` : ''}</div>
+      <div class="comment-body">${escHtml(c.body)}</div>
+    </div>`;
+  }).join('');
+
+  els.modalCommentsList.querySelectorAll('[data-cdel]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this comment?')) return;
+      const { error } = await DataAPI.deleteComment(btn.dataset.cdel);
+      if (error) { showToast(error.message, true); return; }
+      loadModalComments(state.modalItemId);
+    });
+  });
+}
+
+// ============================================================
 // KEYBOARD SHORTCUTS
 // ============================================================
 document.addEventListener('keydown', (e) => {
@@ -1371,6 +1564,7 @@ document.addEventListener('keydown', (e) => {
   const typing = ['INPUT','TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable;
 
   if (e.key === 'Escape') {
+    if (els.itemDetailModal.classList.contains('open')) { closeItemDetail(); return; }
     if (state.selectMode) { toggleSelectMode(false); return; }
     ['summaryPanel','stagePanel','membersPanel','activityPanel','attachmentsPanel','modePanel'].forEach(id => els[id].classList.remove('open'));
     return;

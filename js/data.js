@@ -417,6 +417,30 @@ const DataAPI = (() => {
     return { data: null, error: wrapErr(error, 'Could not delete attachment.') };
   }
 
+  // ---------------- Comments ----------------
+
+  async function listComments(itemId) {
+    const { data, error } = await sb
+      .from('comments')
+      .select('*, profiles(email, full_name)')
+      .eq('item_id', itemId)
+      .order('created_at', { ascending: true });
+    return { data, error: wrapErr(error, 'Could not load comments.') };
+  }
+
+  async function addComment(itemId, projectId, body) {
+    const { data: userData } = await sb.auth.getUser();
+    const { data, error } = await sb.from('comments')
+      .insert({ item_id: itemId, project_id: projectId, author_id: userData?.user?.id, body })
+      .select('*, profiles(email, full_name)').single();
+    return { data, error: wrapErr(error, 'Could not post comment.') };
+  }
+
+  async function deleteComment(commentId) {
+    const { error } = await sb.from('comments').delete().eq('id', commentId);
+    return { data: null, error: wrapErr(error, 'Could not delete comment.') };
+  }
+
   return {
     signUp, signIn, signOut, getSession,
     getMyProfile, updateProfile, uploadAvatar, changePassword, changeEmail,
@@ -426,6 +450,7 @@ const DataAPI = (() => {
     setProgress, bulkSetProgress,
     inviteMember, removeMember, listPendingInvites, cancelInvite, sendInviteEmail,
     listActivity,
-    listAttachments, uploadFileAttachment, addLinkAttachment, getSignedUrl, deleteAttachment
+    listAttachments, uploadFileAttachment, addLinkAttachment, getSignedUrl, deleteAttachment,
+    listComments, addComment, deleteComment
   };
 })();
