@@ -34,6 +34,41 @@
   --font-body: 'Inter', sans-serif;
 }
 
+html.theme-light{
+  --bg:            #f5f2ec;
+  --bg-raised:     #ffffff;
+  --bg-panel:      #ffffff;
+  --bg-card:       #ffffff;
+  --bg-card-hover: #f1ede4;
+  --line:          #dcd6c8;
+  --line-soft:     #e9e4d9;
+
+  --text:          #1c1c1e;
+  --text-dim:      #55565c;
+  --text-faint:    #8a8b92;
+
+  --accent:        #d6551e;
+  --accent-dim:     #b8451a;
+  --accent-soft:   rgba(214,85,30,.12);
+
+  --ok:            #2f8a5c;
+  --ok-soft:       rgba(47,138,92,.12);
+  --warn:          #a8760a;
+  --warn-soft:     rgba(168,118,10,.12);
+  --danger:        #c23636;
+  --danger-soft:   rgba(194,54,54,.12);
+  --idle:          #75767d;
+  --idle-soft:     rgba(117,118,125,.12);
+}
+html.theme-light body{
+  background:
+    radial-gradient(ellipse at 20% -10%, rgba(214,85,30,.05), transparent 40%),
+    var(--bg);
+}
+html.theme-light body::before{
+  background-image:repeating-linear-gradient(135deg, rgba(0,0,0,.02) 0 2px, transparent 2px 12px);
+}
+
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 body{

@@ -132,7 +132,7 @@ else. Run this migration once, after `schema.sql`.
 
 ## CSV import
 
-Next to "+ Add item" is **+ Import CSV** — no migration needed, pure
+Next to "+ Add item" is **Import CSV** — no migration needed, pure
 client-side parsing plus one bulk insert. Expected header row (case-insensitive,
 any order): `name, assignee, due_date, notes`. Only `name` is required; rows
 missing it are skipped. `due_date` must be `YYYY-MM-DD` — anything else is
@@ -185,7 +185,7 @@ default 'multiple') and `primary_item_id` to `projects`. Run once, after
 
 - **At setup**, pick "Just one" or "Multiple" — "Just one" auto-creates that
   single item for you, named after your singular label.
-- **One track mode** hides "+ Add item", "+ Import CSV", and the search box
+- **One track mode** hides "+ Add item", "Import CSV", and the search box
   — the board only ever shows that one item's stages/assignee/due date.
   Everything else (stages, attachments, activity, members) works exactly
   the same.
@@ -195,3 +195,12 @@ default 'multiple') and `primary_item_id` to `projects`. Run once, after
   switch back to multiple.
 - If the one track ever gets deleted, "+ Add item" reappears automatically
   so you're not stuck with an empty board and no way to add one back.
+
+## Light / dark theme
+
+No migration, no data.js changes — pure CSS variables plus `localStorage`.
+**🌙 Dark / ☀️ Light** toggle sits on the Home screen. A tiny inline script
+in each page's `<head>` (index, login, signup) applies the saved preference
+before first paint, so there's no flash of the wrong theme on load. Choosing
+a theme on Home carries over to login/signup too, since it's the same
+`localStorage` key everywhere.

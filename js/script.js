@@ -28,6 +28,19 @@ const state = {
 const els = {};
 document.querySelectorAll('[id]').forEach(el => { els[el.id] = el; });
 
+// ---------------- theme toggle ----------------
+function syncThemeButtonLabel() {
+  if (!els.themeToggleBtn) return;
+  const isLight = document.documentElement.classList.contains('theme-light');
+  els.themeToggleBtn.textContent = isLight ? 'Dark' : 'Light';
+}
+syncThemeButtonLabel();
+els.themeToggleBtn?.addEventListener('click', () => {
+  const isLight = document.documentElement.classList.toggle('theme-light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  syncThemeButtonLabel();
+});
+
 // ---------------- boot ----------------
 (async function boot() {
   const { data: session } = await DataAPI.getSession();
